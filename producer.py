@@ -10,9 +10,12 @@ from confluent_kafka import Producer
 
 from config import INTERVALO_SEGUNDOS, KAFKA_BOOTSTRAP, TOPICO
 
-# Poucos clientes para que as regras de TEMPO e GEO tenham chance de disparar
-CLIENTES = ["C001", "C002", "C003", "C004", "C005"]
 CIDADES = ["São Paulo", "Rio de Janeiro", "Curitiba", "Belo Horizonte", "Porto Alegre", "Recife"]
+
+# Poucos clientes para que a regra TEMPO_60s tenha chance de disparar.
+# Cada cliente tem uma cidade "de casa"; às vezes transaciona em outra (GEO_10m).
+CLIENTES = {f"C{i:03d}": CIDADES[i % len(CIDADES)] for i in range(1, 21)}
+CHANCE_OUTRA_CIDADE = 0.03
 TIPOS = ["COMPRA", "SAQUE", "PIX", "TRANSFERENCIA"]
 
 
@@ -24,11 +27,17 @@ def gerar_transacao():
     else:
         amount = round(random.uniform(5, 9999.99), 2)
 
+    client_id = random.choice(list(CLIENTES))
+    if random.random() < CHANCE_OUTRA_CIDADE:
+        city = random.choice([c for c in CIDADES if c != CLIENTES[client_id]])
+    else:
+        city = CLIENTES[client_id]
+
     return {
         "transaction_id": str(uuid.uuid4()),
-        "client_id": random.choice(CLIENTES),
+        "client_id": client_id,
         "amount": amount,
-        "city": random.choice(CIDADES),
+        "city": city,
         "type": random.choice(TIPOS),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
